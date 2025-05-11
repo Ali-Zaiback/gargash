@@ -384,7 +384,7 @@ def test_update_inquiry_with_transcripts(client, db):
         "concatenated_transcript": "assistant: Hello, how can I help you today?\nuser: I'm interested in a C-Class"
     }
     
-    response = client.put("/inquiries/", json=update_data)
+    response = client.post("/inquiries/webhook", json=update_data)
     assert response.status_code == 200
     data = response.json()
     
@@ -407,7 +407,7 @@ def test_update_inquiry_not_found(client, db):
         "concatenated_transcript": "assistant: Test message"
     }
     
-    response = client.put("/inquiries/", json=update_data)
+    response = client.post("/inquiries/webhook", json=update_data)
     assert response.status_code == 404
 
 def test_update_inquiry_invalid_data(client, db):
@@ -431,7 +431,7 @@ def test_update_inquiry_invalid_data(client, db):
         "concatenated_transcript": "assistant: Test message"
     }
     
-    response = client.put("/inquiries/", json=invalid_data)
+    response = client.post("/inquiries/webhook", json=invalid_data)
     assert response.status_code == 422
 
 def test_update_inquiry_empty_transcripts(client, db):
@@ -455,7 +455,7 @@ def test_update_inquiry_empty_transcripts(client, db):
         "concatenated_transcript": ""
     }
     
-    response = client.put("/inquiries/", json=update_data)
+    response = client.post("/inquiries/webhook", json=update_data)
     assert response.status_code == 200
     
     # Verify no call was created
@@ -515,7 +515,7 @@ def test_inquiry_status_transitions(client, db):
         "concatenated_transcript": "assistant: Test message"
     }
     
-    response = client.put("/inquiries/", json=update_data)
+    response = client.post("/inquiries/webhook", json=update_data)
     assert response.status_code == 200
     assert response.json()["status"] == "deal"
 

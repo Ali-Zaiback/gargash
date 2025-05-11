@@ -138,8 +138,6 @@ def create_inquiry(inquiry: schemas.InquiryCreate, db: Session = Depends(get_db)
             "customer_id": db_inquiry.customer_id,
             "referral_nr": db_inquiry.referral_nr,
             "status": db_inquiry.status,
-            "created_at": db_inquiry.created_at,
-            "updated_at": db_inquiry.updated_at,
             "phone_number": customer.phone_number,
             "email": customer.email,
             "name": customer.name
@@ -152,7 +150,7 @@ def create_inquiry(inquiry: schemas.InquiryCreate, db: Session = Depends(get_db)
                 err['ctx']['error'] = str(err['ctx']['error'])
         raise HTTPException(status_code=422, detail=errors)
 
-@app.put("/inquiries/", response_model=schemas.InquiryResponse)
+@app.post("/inquiries/webhook", response_model=schemas.InquiryResponse)
 def update_inquiry(
     inquiry_update: schemas.InquiryUpdate,
     db: Session = Depends(get_db)
@@ -160,7 +158,7 @@ def update_inquiry(
     """Update an inquiry by ID."""
     inquiry_service = InquiryService(db)
     try:
-        db_inquiry = inquiry_service.update_inquiry(inquiry_update.inquiry_id, inquiry_update)
+        db_inquiry = inquiry_service.update_inquiry(inquiry_update.metadata.inquiry_id, inquiry_update)
         # Merge Inquiry and Customer fields for the response
         customer = db_inquiry.customer
         return {
@@ -168,8 +166,6 @@ def update_inquiry(
             "customer_id": db_inquiry.customer_id,
             "referral_nr": db_inquiry.referral_nr,
             "status": db_inquiry.status,
-            "created_at": db_inquiry.created_at,
-            "updated_at": db_inquiry.updated_at,
             "phone_number": customer.phone_number,
             "email": customer.email,
             "name": customer.name

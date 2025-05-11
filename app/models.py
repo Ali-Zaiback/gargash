@@ -14,7 +14,7 @@ class Agent(Base):
     employee_id = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     phone_number = Column(String, unique=True, index=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    # created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     is_active = Column(Boolean, default=True)
     
     # Performance metrics
@@ -77,8 +77,8 @@ class Inquiry(Base):
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     referral_nr = Column(String, nullable=False)
     status = Column(String, default=InquiryStatus.CALLING)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    #created_at = Column(DateTime, default=datetime.utcnow)
+    #updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     variables = Column(JSON, nullable=True)
     transcripts = Column(JSON, nullable=True)
     

@@ -119,15 +119,15 @@ class InquiryResponse(InquiryBase):
     id: int
     customer_id: int
     status: str
-    created_at: datetime
-    updated_at: datetime
 
     class Config:
         from_attributes = True
 
+class Metadata(BaseModel):
+    inquiry_id: int
 class InquiryUpdate(BaseModel):
     """Data for updating an inquiry."""
-    inquiry_id: int
+    metadata: Metadata
     variables: Dict[str, Any]
     concatenated_transcript: str
 

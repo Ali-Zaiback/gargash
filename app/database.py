@@ -8,6 +8,7 @@ from app.models import Agent
 from app.schemas import AgentCreate
 import time
 from sqlalchemy.orm import Session
+from datetime import datetime, UTC
 
 load_dotenv()
 
@@ -33,8 +34,14 @@ def get_db():
     finally:
         db.close()
 
-def get_default_ai_agent_id(db: Session):
+def get_default_ai_agent_id(db: Session = None):
     """Get the ID of the default AI agent, creating it if it doesn't exist."""
+    if db is None:
+        db = SessionLocal()
+        should_close = True
+    else:
+        should_close = False
+        
     try:
         default_agent = db.query(Agent).filter(Agent.employee_id == "AI-001").first()
         if default_agent:
@@ -47,7 +54,16 @@ def get_default_ai_agent_id(db: Session):
             phone_number="+971500000000",
             specialization="AI Support"
         )
-        default_agent = Agent(**agent_data.model_dump())
+        default_agent = Agent(
+            name=agent_data.name,
+            employee_id=agent_data.employee_id,
+            email=agent_data.email,
+            phone_number=agent_data.phone_number,
+            specialization=agent_data.specialization,
+            is_active=True,
+            total_calls_handled=0,
+            average_performance_score=0.0
+        )
         db.add(default_agent)
         db.commit()
         db.refresh(default_agent)
@@ -56,4 +72,7 @@ def get_default_ai_agent_id(db: Session):
     except Exception as e:
         print(f"Error creating default AI agent: {str(e)}")
         db.rollback()
-        return None 
+        return None
+    finally:
+        if should_close:
+            db.close() 

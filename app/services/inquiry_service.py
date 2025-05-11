@@ -55,7 +55,7 @@ class InquiryService:
         
         # Call external API (bland.ai)
         headers = {
-            'Authorization': 'API_KEY',  # TODO: Replace with your actual API key
+            'Authorization': 'org_5866470eb265da3e5a3fa9cbbd9d493243eb17b08d57dc5357ee4d1bc5d48bf1c68906990e2371be581069',  # TODO: Replace with your actual API key
         }
         data = {
             "phone_number": inquiry_data.phone_number,
@@ -72,7 +72,9 @@ class InquiryService:
             "background_track": "none",
             "endpoint": "https://api.bland.ai",
             "voicemail_action": "hangup",
-            "webhook": "https://b274-94-206-192-223.ngrok-free.app/inquiries",
+            "pathway_id": "a560e8ab-ce88-440e-a722-308a09d2a9d5",
+            "pathway_version": 2,
+            "webhook": "https://e9d8-94-206-192-223.ngrok-free.app/inquiries/webhook",
             "metadata": {
                 "inquiry_id": db_inquiry.id
             }
@@ -119,7 +121,8 @@ class InquiryService:
             self.db.refresh(db_inquiry)
             return db_inquiry
 
-        except HTTPException:
+        except Exception as e:
+            print(f"ali_debug: {e}")
             self.db.rollback()
             raise
         except OperationalError as e:
