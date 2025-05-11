@@ -7,69 +7,79 @@ from app.schemas import CallCreate
 from app.services.ai_service import AIService
 import time
 from sqlalchemy.exc import OperationalError
+import logging
+
+MAX_TRANSCRIPT_LENGTH = 10000
 
 class CallService:
     """Service for managing call records and analysis."""
     
-    def __init__(self, db: Session, ai_service=None):
+    def __init__(self, db: Session, ai_service: AIService = None):
         """Initialize the call service with database session and optional AI service."""
         self.db = db
-        self.ai_service = ai_service
+        self.ai_service = ai_service or AIService()
 
     def create_call(self, call: CallCreate) -> Call:
         """Create a new call record with AI analysis."""
         try:
-            # Create the call record
+            # Validate transcript first
+            if not call.transcript.strip():
+                raise HTTPException(status_code=422, detail="Transcript must not be empty")
+            
+            if len(call.transcript) > MAX_TRANSCRIPT_LENGTH:
+                raise HTTPException(status_code=422, detail="Transcript too long")
+
+            # Verify customer exists
+            customer = self.db.query(Customer).filter(Customer.id == call.customer_id).first()
+            if not customer:
+                raise HTTPException(status_code=404, detail="Customer not found")
+
+            # Verify agent exists
+            agent = self.db.query(Agent).filter(Agent.id == call.agent_id).first()
+            if not agent:
+                raise HTTPException(status_code=404, detail="Agent not found")
+
+            # Create call record
             db_call = Call(
                 customer_id=call.customer_id,
                 agent_id=call.agent_id,
                 transcript=call.transcript,
                 call_date=call.call_date
             )
+
+            # Perform AI analysis
+            analysis = self.ai_service.analyze_call(call.transcript)
             
-            # If AI service is available, perform analysis
-            if self.ai_service:
-                try:
-                    analysis = self.ai_service.analyze_call(call.transcript)
-                    
-                    # Update call with analysis results
-                    db_call.agent_performance_score = analysis["agent_performance_score"]
-                    db_call.agent_issues = analysis["agent_issues"]
-                    db_call.customer_interest_score = analysis["customer_interest_score"]
-                    db_call.customer_description = analysis["customer_description"]
-                    db_call.customer_preferences = analysis["customer_preferences"]
-                    db_call.test_drive_readiness = analysis["test_drive_readiness"]
-                    db_call.analysis_results = analysis["analysis_results"]
-                except Exception as e:
-                    print(f"AI analysis failed: {str(e)}")
-                    # Continue without analysis results
+            # Update call with analysis results
+            db_call.agent_performance_score = analysis.get("agent_performance_score")
+            db_call.agent_issues = analysis.get("agent_issues")
+            db_call.customer_interest_score = analysis.get("customer_interest_score")
+            db_call.customer_description = analysis.get("customer_description")
+            db_call.customer_preferences = analysis.get("customer_preferences")
+            db_call.test_drive_readiness = analysis.get("test_drive_readiness")
+            db_call.analysis_results = analysis
+
+            # Update agent metrics
+            agent.total_calls_handled += 1
+            agent.average_performance_score = (
+                (agent.average_performance_score * (agent.total_calls_handled - 1) +
+                 (analysis.get("agent_performance_score") or 0.0)) / agent.total_calls_handled
+            )
+
+            self.db.add(db_call)
+            self.db.commit()
+            self.db.refresh(db_call)
+            return db_call
             
-            # Save the call record with retry logic for database locks
-            max_retries = 3
-            retry_delay = 1  # seconds
-            
-            for attempt in range(max_retries):
-                try:
-                    self.db.add(db_call)
-                    self.db.commit()
-                    self.db.refresh(db_call)
-                    
-                    # If AI analysis was successful, update agent metrics
-                    if self.ai_service and hasattr(db_call, 'agent_performance_score'):
-                        self._update_agent_metrics(call.agent_id)
-                    
-                    return db_call
-                except OperationalError as e:
-                    if "database is locked" in str(e) and attempt < max_retries - 1:
-                        print(f"Database locked, attempt {attempt + 1} of {max_retries}. Retrying...")
-                        self.db.rollback()
-                        time.sleep(retry_delay)
-                        retry_delay *= 2  # Exponential backoff
-                    else:
-                        raise
+        except HTTPException as he:
+            self.db.rollback()
+            raise
+        except OperationalError:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail="Database error")
         except Exception as e:
             self.db.rollback()
-            raise HTTPException(status_code=500, detail=f"Failed to create call: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     def get_calls(
         self, 

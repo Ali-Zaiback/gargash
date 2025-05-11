@@ -1,7 +1,7 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from app.models import Customer
 from app.schemas import CustomerCreate, CustomerUpdate
 
@@ -14,52 +14,79 @@ class CustomerService:
     def create_customer(self, customer: CustomerCreate) -> Customer:
         """Create a new customer."""
         try:
-            db_customer = Customer(**customer.model_dump())
+            # Check for existing customer with same email
+            existing_email = self.db.query(Customer).filter(Customer.email == customer.email).first()
+            if existing_email:
+                raise HTTPException(status_code=400, detail="Email already registered")
+
+            # Check for existing customer with same phone
+            existing_phone = self.db.query(Customer).filter(Customer.phone_number == customer.phone_number).first()
+            if existing_phone:
+                raise HTTPException(status_code=400, detail="Phone number already registered")
+
+            db_customer = Customer(
+                name=customer.name,
+                email=customer.email,
+                phone_number=customer.phone_number
+            )
             self.db.add(db_customer)
             self.db.commit()
             self.db.refresh(db_customer)
             return db_customer
-        except IntegrityError as e:
+
+        except HTTPException:
             self.db.rollback()
-            error_msg = str(e.orig)
-            if 'email' in error_msg:
-                raise HTTPException(status_code=400, detail="Email already registered")
-            if 'phone_number' in error_msg:
-                raise HTTPException(status_code=400, detail="Phone already registered")
-            raise HTTPException(status_code=400, detail="Duplicate entry")
+            raise
+        except OperationalError as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail="Database error")
+        except Exception as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
 
-    def get_customers(
-        self, 
-        skip: int = 0, 
-        limit: int = 100,
-        search: Optional[str] = None
-    ) -> List[Customer]:
+    def get_customers(self, skip: int = 0, limit: int = 100):
         """Get filtered list of customers."""
-        query = self.db.query(Customer)
-        if search:
-            search_term = f"%{search}%"
-            query = query.filter(
-                (Customer.name.ilike(search_term)) |
-                (Customer.email.ilike(search_term))
-            )
-        return query.offset(skip).limit(limit).all()
+        return self.db.query(Customer).offset(skip).limit(limit).all()
 
-    def get_customer(self, customer_id: int) -> Optional[Customer]:
+    def get_customer(self, customer_id: int) -> Customer:
         """Get a specific customer."""
         return self.db.query(Customer).filter(Customer.id == customer_id).first()
 
-    def update_customer(self, customer_id: int, customer: CustomerUpdate) -> Optional[Customer]:
+    def update_customer(self, customer_id: int, customer: CustomerUpdate) -> Customer:
         """Update a customer."""
-        db_customer = self.get_customer(customer_id)
-        if not db_customer:
-            return None
-            
-        for key, value in customer.model_dump(exclude_unset=True).items():
-            setattr(db_customer, key, value)
-            
-        self.db.commit()
-        self.db.refresh(db_customer)
-        return db_customer
+        try:
+            db_customer = self.get_customer(customer_id)
+            if not db_customer:
+                raise HTTPException(status_code=404, detail="Customer not found")
+
+            # Check for existing customer with same email if email is being updated
+            if customer.email and customer.email != db_customer.email:
+                existing_email = self.db.query(Customer).filter(Customer.email == customer.email).first()
+                if existing_email:
+                    raise HTTPException(status_code=400, detail="Email already registered")
+
+            # Check for existing customer with same phone if phone is being updated
+            if customer.phone_number and customer.phone_number != db_customer.phone_number:
+                existing_phone = self.db.query(Customer).filter(Customer.phone_number == customer.phone_number).first()
+                if existing_phone:
+                    raise HTTPException(status_code=400, detail="Phone number already registered")
+
+            for key, value in customer.dict(exclude_unset=True).items():
+                setattr(db_customer, key, value)
+
+            self.db.commit()
+            self.db.refresh(db_customer)
+            return db_customer
+
+        except HTTPException:
+            self.db.rollback()
+            raise
+        except OperationalError as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail="Database error")
+        except Exception as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
 
     def delete_customer(self, customer_id: int) -> bool:
         """Delete a customer."""

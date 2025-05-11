@@ -37,6 +37,9 @@ def db_session(db_engine):
     transaction = connection.begin()
     Session = sessionmaker(bind=connection)
     db = Session()
+    # Ensure default AI agent exists in this session
+    from app.database import get_default_ai_agent_id
+    get_default_ai_agent_id(db)
     try:
         yield db
     finally:

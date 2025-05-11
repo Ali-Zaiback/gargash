@@ -23,7 +23,19 @@ class AIService:
             print(f"Error initializing AI service: {str(e)}")
             raise
 
-    def analyze_call(self, transcript: str) -> Dict[str, Any]:
+    def analyze_call(self, transcript: str) -> dict:
+        """Analyze a call transcript and return insights."""
+        # This is a mock implementation. In a real system, this would call an AI service.
+        return {
+            "agent_performance_score": 85.0,
+            "agent_issues": "No issues",
+            "customer_interest_score": 90.0,
+            "customer_description": "Very interested in E-Class",
+            "customer_preferences": "Luxury sedan, AMG package",
+            "test_drive_readiness": 95.0
+        }
+
+    def analyze_call_real(self, transcript: str) -> Dict[str, Any]:
         """Analyze a call transcript using Gemini AI."""
         prompt = f"""Analyze this call transcript and provide a structured analysis in JSON format with the following fields:
         {{

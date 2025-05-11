@@ -80,22 +80,7 @@ def create_data(db: Session):
                 call_data = response.json()
 
                 # The API returns a Call object, so we don't need to create it manually
-                # call = Call(
-                #     customer_id=customer.id,
-                #     agent_id=agent.id,
-                #     transcript=call_data["transcript"],
-                #     call_date=datetime.now(UTC),
-                #     agent_performance_score=call_data["agent_performance_score"],
-                #     customer_interest_score=call_data["customer_interest_score"],
-                #     test_drive_readiness=call_data["test_drive_readiness"],
-                #     analysis_results=call_data["analysis_results"]
-                # )
-                call_data["call_date"] = datetime.now(UTC)
-                # Ensure call_date is a datetime object
-                call_data["call_date"] = datetime.fromisoformat(str(call_data["call_date"]))
-                call = Call(**call_data)
-                calls.append(call)
-                db.add(call)
+                # No need to modify or insert call_data or Call objects here
 
             except requests.exceptions.RequestException as e:
                 print(f"Error fetching call data from API: {e}")

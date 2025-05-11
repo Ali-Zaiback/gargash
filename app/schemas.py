@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime, UTC
 import re
+from app.models import InquiryStatus
 
 class AgentBase(BaseModel):
     """Basic agent information."""
@@ -29,6 +30,9 @@ class Agent(AgentBase):
     is_active: bool
     average_performance_score: float
     total_calls_handled: int
+
+    class Config:
+        from_attributes = True
 
 class AgentUpdate(BaseModel):
     """Data for updating an agent."""
@@ -99,4 +103,33 @@ class AgentPerformance(BaseModel):
     average_test_drive_readiness: float
     agent_issues: List[str]
     specialization: str
-    is_active: bool 
+    is_active: bool
+
+class InquiryBase(BaseModel):
+    phone_number: str
+    email: str
+    name: str
+    referral_nr: str
+    status: InquiryStatus = InquiryStatus.CALLING
+
+class InquiryCreate(InquiryBase):
+    pass
+
+class InquiryResponse(InquiryBase):
+    id: int
+    customer_id: int
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class InquiryUpdate(BaseModel):
+    """Data for updating an inquiry."""
+    inquiry_id: int
+    variables: Dict[str, Any]
+    concatenated_transcript: str
+
+    class Config:
+        extra = "allow" 

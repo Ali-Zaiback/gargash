@@ -8,6 +8,8 @@ from .services.agent_service import AgentService
 from .services.call_service import CallService
 from .services.customer_service import CustomerService
 from .services.ai_service import AIService
+from .services.inquiry_service import InquiryService
+from pydantic import ValidationError
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -123,3 +125,59 @@ def get_customer_calls(customer_id: int, db: Session = Depends(get_db)):
 def get_agent_calls(agent_id: int, days: int = 30, db: Session = Depends(get_db)):
     """Get recent calls for an agent."""
     return CallService(db).get_agent_calls(agent_id, days)
+
+@app.post("/inquiries/", response_model=schemas.InquiryResponse)
+def create_inquiry(inquiry: schemas.InquiryCreate, db: Session = Depends(get_db)):
+    inquiry_service = InquiryService(db)
+    try:
+        db_inquiry = inquiry_service.create_inquiry(inquiry)
+        # Merge Inquiry and Customer fields for the response
+        customer = db_inquiry.customer
+        return {
+            "id": db_inquiry.id,
+            "customer_id": db_inquiry.customer_id,
+            "referral_nr": db_inquiry.referral_nr,
+            "status": db_inquiry.status,
+            "created_at": db_inquiry.created_at,
+            "updated_at": db_inquiry.updated_at,
+            "phone_number": customer.phone_number,
+            "email": customer.email,
+            "name": customer.name
+        }
+    except ValidationError as e:
+        # Convert ValueError in ctx to string for JSON serialization
+        errors = e.errors()
+        for err in errors:
+            if 'ctx' in err and 'error' in err['ctx']:
+                err['ctx']['error'] = str(err['ctx']['error'])
+        raise HTTPException(status_code=422, detail=errors)
+
+@app.put("/inquiries/", response_model=schemas.InquiryResponse)
+def update_inquiry(
+    inquiry_update: schemas.InquiryUpdate,
+    db: Session = Depends(get_db)
+):
+    """Update an inquiry by ID."""
+    inquiry_service = InquiryService(db)
+    try:
+        db_inquiry = inquiry_service.update_inquiry(inquiry_update.inquiry_id, inquiry_update)
+        # Merge Inquiry and Customer fields for the response
+        customer = db_inquiry.customer
+        return {
+            "id": db_inquiry.id,
+            "customer_id": db_inquiry.customer_id,
+            "referral_nr": db_inquiry.referral_nr,
+            "status": db_inquiry.status,
+            "created_at": db_inquiry.created_at,
+            "updated_at": db_inquiry.updated_at,
+            "phone_number": customer.phone_number,
+            "email": customer.email,
+            "name": customer.name
+        }
+    except ValidationError as e:
+        # Convert ValueError in ctx to string for JSON serialization
+        errors = e.errors()
+        for err in errors:
+            if 'ctx' in err and 'error' in err['ctx']:
+                err['ctx']['error'] = str(err['ctx']['error'])
+        raise HTTPException(status_code=422, detail=errors)
