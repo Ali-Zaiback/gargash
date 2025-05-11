@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from fastapi.middleware.cors import CORSMiddleware
 from . import models, schemas
 from .database import get_db, engine
 from .services.agent_service import AgentService
@@ -16,6 +17,15 @@ app = FastAPI(
     title="Call Analysis System",
     description="AI-powered call analysis for Mercedes-Benz dealership",
     version="1.0.0"
+)
+
+# CORS configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8000"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
 # Dependency for AI service (for test overrides)
@@ -91,6 +101,11 @@ def create_call(call: schemas.CallCreate, db: Session = Depends(get_db), ai_serv
     """Create a new call with AI analysis."""
     return CallService(db, ai_service).create_call(call)
 
+@app.get("/calls/", response_model=List[schemas.Call])
+def get_all_calls(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    """Get a list of all calls."""
+    return CallService(db).get_calls(skip=skip, limit=limit)
+
 @app.get("/calls/{call_id}", response_model=schemas.Call)
 def get_call(call_id: int, db: Session = Depends(get_db)):
     """Get call by ID."""
@@ -107,4 +122,4 @@ def get_customer_calls(customer_id: int, db: Session = Depends(get_db)):
 @app.get("/agents/{agent_id}/calls/", response_model=List[schemas.Call])
 def get_agent_calls(agent_id: int, days: int = 30, db: Session = Depends(get_db)):
     """Get recent calls for an agent."""
-    return CallService(db).get_agent_calls(agent_id, days) 
+    return CallService(db).get_agent_calls(agent_id, days)
